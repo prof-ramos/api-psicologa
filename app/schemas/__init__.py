@@ -1,6 +1,7 @@
 """Schemas Pydantic para validação de dados astrológicos."""
 
 from .astrology import (
+    SimpleAstrologicalRequest,
     AstrologicalSubjectRequest,
     AstrologicalSubjectResponse,
     ChartRequest,
@@ -14,6 +15,7 @@ from .astrology import (
 )
 
 __all__ = [
+    "SimpleAstrologicalRequest",
     "AstrologicalSubjectRequest",
     "AstrologicalSubjectResponse",
     "ChartRequest",

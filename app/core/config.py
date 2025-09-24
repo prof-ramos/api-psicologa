@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     app_name: str = Field(default="API Astrológica", description="Nome da aplicação")
     version: str = Field(default="1.0.0", description="Versão da API")
     debug: bool = Field(default=False, description="Modo debug")
+    env_type: str = Field(default="dev", description="Tipo do ambiente")
 
     # Configurações de localização padrão
     default_timezone: str = Field(default="America/Sao_Paulo", description="Timezone padrão")

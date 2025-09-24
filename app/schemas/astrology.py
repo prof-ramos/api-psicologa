@@ -15,6 +15,44 @@ class APIResponse(BaseModel):
     message: Optional[str] = Field(default=None, description="Mensagem informativa")
 
 
+class SimpleAstrologicalRequest(BaseModel):
+    """Request simplificado para usuário final."""
+
+    name: str = Field(..., min_length=1, max_length=100, description="Nome completo")
+    birth_date: str = Field(..., description="Data de nascimento (DD/MM/AAAA)")
+    birth_time: str = Field(..., description="Hora de nascimento (HH:MM)")
+    city: str = Field(..., min_length=1, max_length=100, description="Cidade de nascimento")
+    state_country: str = Field(..., description="Estado/País (ex: 'SP', 'Rio de Janeiro', 'Portugal')")
+
+    @validator('birth_date')
+    def validate_birth_date(cls, v):
+        """Valida formato da data."""
+        try:
+            day, month, year = v.split('/')
+            if len(day) != 2 or len(month) != 2 or len(year) != 4:
+                raise ValueError()
+            day, month, year = int(day), int(month), int(year)
+            if not (1 <= day <= 31 and 1 <= month <= 12 and 1900 <= year <= 2100):
+                raise ValueError()
+            return v
+        except:
+            raise ValueError('Data deve estar no formato DD/MM/AAAA')
+
+    @validator('birth_time')
+    def validate_birth_time(cls, v):
+        """Valida formato da hora."""
+        try:
+            hour, minute = v.split(':')
+            if len(hour) != 2 or len(minute) != 2:
+                raise ValueError()
+            hour, minute = int(hour), int(minute)
+            if not (0 <= hour <= 23 and 0 <= minute <= 59):
+                raise ValueError()
+            return v
+        except:
+            raise ValueError('Hora deve estar no formato HH:MM')
+
+
 class AstrologicalSubjectRequest(BaseModel):
     """Request para criação de sujeito astrológico."""
 
