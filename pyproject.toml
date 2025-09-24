@@ -1,0 +1,26 @@
+[project]
+name = "astrologer-api"
+version = "0.1.0"
+description = "FastAPI para cálculos astrológicos usando Kerykeion."
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "kerykeion>=4.15.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.4.2",
+    "httpx>=0.25.0",
+]
+dev = [
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
