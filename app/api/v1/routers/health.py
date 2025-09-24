@@ -3,7 +3,7 @@ Endpoints de health check e status da API.
 """
 
 from fastapi import APIRouter
-from ...schemas import APIResponse
+from ....schemas import APIResponse
 
 router = APIRouter(prefix="/health", tags=["health"])
 

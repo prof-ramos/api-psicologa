@@ -15,6 +15,40 @@ class APIResponse(BaseModel):
     message: Optional[str] = Field(default=None, description="Mensagem informativa")
 
 
+class SimpleAstrologicalRequest(BaseModel):
+    """Request simplificado para usuário final."""
+
+    name: str = Field(..., min_length=1, max_length=100, description="Nome completo")
+    birth_date: str = Field(..., description="Data de nascimento (DD/MM/AAAA)")
+    birth_time: str = Field(..., description="Hora de nascimento (HH:MM)")
+    city: str = Field(..., min_length=1, max_length=100, description="Cidade de nascimento")
+    state_country: str = Field(..., description="Estado/País (ex: 'SP', 'Rio de Janeiro', 'Portugal')")
+
+    @validator('birth_date')
+    def validate_birth_date(cls, v):
+        """Valida formato da data."""
+        try:
+            parsed_date = datetime.strptime(v, "%d/%m/%Y")
+            if not (1900 <= parsed_date.year <= 2100):
+                raise ValueError('Ano deve estar entre 1900 e 2100')
+        except ValueError as e:
+            if 'Ano deve estar entre 1900 e 2100' in str(e):
+                raise e
+            raise ValueError('Data deve estar no formato DD/MM/AAAA') from e
+        else:
+            return v
+
+    @validator('birth_time')
+    def validate_birth_time(cls, v):
+        """Valida formato da hora."""
+        try:
+            datetime.strptime(v, "%H:%M")
+        except ValueError as e:
+            raise ValueError('Hora deve estar no formato HH:MM') from e
+        else:
+            return v
+
+
 class AstrologicalSubjectRequest(BaseModel):
     """Request para criação de sujeito astrológico."""
 
