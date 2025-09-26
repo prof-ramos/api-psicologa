@@ -1,0 +1,74 @@
+version: "3.9"
+
+services:
+  api:
+    image: ${API_IMAGE:-astrologer-api:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: ${PORT:-8000}
+      WORKERS: ${WORKERS:-2}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      API_BASE_PATH: ""
+    depends_on:
+      - redis
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=reverse-proxy"
+      - "traefik.http.routers.astrologer-api.rule=Host(`${TRAEFIK_DOMAIN:-api.exemplo.com}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.astrologer-api.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
+      - "traefik.http.routers.astrologer-api.tls.certresolver=le"
+      - "traefik.http.routers.astrologer-api.middlewares=api-strip"
+      - "traefik.http.middlewares.api-strip.stripprefix.prefixes=/api"
+      - "traefik.http.routers.astrologer-ui.rule=Host(`${TRAEFIK_DOMAIN:-api.exemplo.com}`) && PathPrefix(`/ui`)"
+      - "traefik.http.routers.astrologer-ui.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
+      - "traefik.http.routers.astrologer-ui.tls.certresolver=le"
+      - "traefik.http.routers.astrologer-ui.middlewares=ui-strip"
+      - "traefik.http.middlewares.ui-strip.stripprefix.prefixes=/ui"
+      - "traefik.http.services.astrologer-api.loadbalancer.server.port=8000"
+    networks:
+      - reverse-proxy
+
+  traefik:
+    image: traefik:v2.10
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.le.acme.tlschallenge=true
+      - --certificatesresolvers.le.acme.email=${TRAEFIK_ACME_EMAIL:-admin@example.com}
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - traefik-config:/etc/traefik
+      - traefik-letsencrypt:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - reverse-proxy
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis-data:/data
+    networks:
+      - reverse-proxy
+
+networks:
+  reverse-proxy:
+    driver: bridge
+
+volumes:
+  traefik-config:
+  traefik-letsencrypt:
+  redis-data:

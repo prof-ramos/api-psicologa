@@ -1,0 +1,27 @@
+# Diretórios e arquivos desnecessários para a imagem
+.git
+.gitignore
+.mcp.json
+.claude
+.vscode
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.eggs
+*.egg-info
+htmlcov
+coverage.xml
+.tests
+pytest.ini
+*.log
+.DS_Store
+.env
+.env.*
+.idea
+run.sh
+run-ui.sh
+streamlit_app.py
+tests
