@@ -18,12 +18,15 @@ from .core.exceptions import (
     astrology_exception_handler,
     general_exception_handler
 )
+from .core.logging import configure_logging
+
+try:
+    from prometheus_client import make_asgi_app
+except ImportError:  # pragma: no cover - dependência opcional
+    make_asgi_app = None  # type: ignore[assignment]
 
 # Configurar logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+configure_logging(settings.log_level, settings.log_format)
 logger = logging.getLogger(__name__)
 
 
@@ -33,7 +36,15 @@ async def lifespan(app: FastAPI):
     Context manager para startup e shutdown da aplicação.
     """
     # Startup
-    logger.info(f"Iniciando {settings.app_name} v{settings.version}")
+    logger.info(
+        "Iniciando %s v%s | host=%s | porta=%s | base_path=%s | metrics=%s",
+        settings.app_name,
+        settings.version,
+        settings.host,
+        settings.port,
+        settings.api_base_path or "/",
+        "habilitado" if settings.enable_metrics else "desabilitado"
+    )
     yield
     # Shutdown
     logger.info("Encerrando aplicação")
@@ -67,6 +78,10 @@ def create_app() -> FastAPI:
     # Incluir routers
     app.include_router(health_router, prefix="/api/v1")
     app.include_router(astrology_router, prefix="/api/v1")
+
+    # Montar métricas Prometheus se habilitado
+    if settings.enable_metrics and make_asgi_app:
+        app.mount(settings.metrics_path, make_asgi_app())
 
     return app
 
