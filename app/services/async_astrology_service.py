@@ -1,5 +1,5 @@
 """
-Serviço para cálculos astrológicos usando a biblioteca Kerykeion.
+Async version of astrological calculations service.
 """
 
 import asyncio
@@ -24,16 +24,16 @@ from ..core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Thread pool for CPU-intensive calculations
-calculation_executor = ThreadPoolExecutor(max_workers=4)
+# Dedicated thread pool for astrological calculations
+astro_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="astro")
 
 
-class AstrologyService:
-    """Serviço para operações astrológicas usando Kerykeion."""
+class AsyncAstrologyService:
+    """Async service for astrological operations using Kerykeion."""
 
     @staticmethod
     def create_astrological_subject(request: AstrologicalSubjectRequest) -> AstrologicalSubject:
-        """Cria um AstrologicalSubject do Kerykeion a partir do request."""
+        """Create AstrologicalSubject from request - CPU intensive, runs in thread."""
         try:
             return AstrologicalSubject(
                 name=request.name,
@@ -47,18 +47,16 @@ class AstrologyService:
                 timezone=request.timezone
             )
         except Exception as e:
-            logger.error(f"Erro ao criar AstrologicalSubject: {e}")
-            raise ValueError(f"Dados inválidos para criar sujeito astrológico: {e}")
+            logger.error(f"Error creating AstrologicalSubject: {e}")
+            raise ValueError(f"Invalid data for astrological subject: {e}")
 
     @staticmethod
     def _extract_planet_positions(subject: AstrologicalSubject) -> List[PlanetPosition]:
-        """Extrai posições dos planetas do sujeito astrológico."""
+        """Extract planet positions from astrological subject."""
         planets = []
 
         try:
-            # Kerykeion armazena planetas em diferentes atributos
             planet_data = subject.planets_degrees_ut()
-            house_data = subject.houses_list()
 
             for planet_info in planet_data:
                 if isinstance(planet_info, dict):
@@ -75,13 +73,13 @@ class AstrologyService:
                     planets.append(planet)
 
         except Exception as e:
-            logger.warning(f"Erro ao extrair posições dos planetas: {e}")
+            logger.warning(f"Error extracting planet positions: {e}")
 
         return planets
 
     @staticmethod
     def _extract_house_positions(subject: AstrologicalSubject) -> List[HousePosition]:
-        """Extrai posições das casas do sujeito astrológico."""
+        """Extract house positions from astrological subject."""
         houses = []
 
         try:
@@ -97,13 +95,13 @@ class AstrologyService:
                     houses.append(house)
 
         except Exception as e:
-            logger.warning(f"Erro ao extrair posições das casas: {e}")
+            logger.warning(f"Error extracting house positions: {e}")
 
         return houses
 
     @staticmethod
     def _extract_aspects(subject: AstrologicalSubject) -> List[AspectData]:
-        """Extrai aspectos do sujeito astrológico."""
+        """Extract aspects from astrological subject."""
         aspects = []
 
         try:
@@ -121,18 +119,16 @@ class AstrologyService:
                     aspects.append(aspect)
 
         except Exception as e:
-            logger.warning(f"Erro ao extrair aspectos: {e}")
+            logger.warning(f"Error extracting aspects: {e}")
 
         return aspects
 
     @classmethod
-    @cache_astrological_subject()
-    def get_astrological_data(cls, request: AstrologicalSubjectRequest) -> AstrologicalSubjectResponse:
-        """Obtém dados astrológicos completos para um sujeito."""
+    def _get_astrological_data_sync(cls, request: AstrologicalSubjectRequest) -> AstrologicalSubjectResponse:
+        """Synchronous version for thread execution."""
         try:
             subject = cls.create_astrological_subject(request)
 
-            # Extrair dados do sujeito
             birth_date = datetime(
                 year=request.year,
                 month=request.month,
@@ -160,60 +156,87 @@ class AstrologyService:
             )
 
         except Exception as e:
-            logger.error(f"Erro ao obter dados astrológicos: {e}")
-            raise ValueError(f"Erro nos cálculos astrológicos: {e}")
+            logger.error(f"Error getting astrological data: {e}")
+            raise ValueError(f"Error in astrological calculations: {e}")
 
     @classmethod
-    @cache_natal_chart()
-    def generate_natal_chart(
+    @cache_astrological_subject()
+    async def get_astrological_data(cls, request: AstrologicalSubjectRequest) -> AstrologicalSubjectResponse:
+        """Get complete astrological data for a subject (async)."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            astro_executor,
+            cls._get_astrological_data_sync,
+            request
+        )
+
+    @classmethod
+    def _generate_natal_chart_sync(
         cls,
         request: AstrologicalSubjectRequest,
         chart_type: str = "natal",
         include_aspects: bool = True
     ) -> ChartResponse:
-        """Gera mapa natal em SVG."""
+        """Synchronous natal chart generation for thread execution."""
         try:
             subject = cls.create_astrological_subject(request)
 
-            # Gerar mapa usando Kerykeion
+            # Generate chart using Kerykeion
             chart = KerykeionChartSVG(subject)
 
-            # Configurar opções do mapa
+            # Configure chart options
             if hasattr(chart, 'chart_type'):
                 chart.chart_type = chart_type
 
-            # Gerar SVG
+            # Generate SVG
             svg_content = chart.makeSVG()
 
-            # Obter dados do mapa
+            # Get chart data
             chart_data = subject.json(dump=False) if hasattr(subject, 'json') else {}
 
             return ChartResponse(
                 chart_data=chart_data,
                 svg_content=svg_content,
                 chart_type=chart_type,
-                house_system="Placidus",  # Padrão do Kerykeion
+                house_system="Placidus",
                 calculation_date=datetime.now()
             )
 
         except Exception as e:
-            logger.error(f"Erro ao gerar mapa natal: {e}")
-            raise ValueError(f"Erro na geração do mapa: {e}")
+            logger.error(f"Error generating natal chart: {e}")
+            raise ValueError(f"Error in chart generation: {e}")
 
     @classmethod
-    @cache_transits()
-    def calculate_transits(
+    @cache_natal_chart()
+    async def generate_natal_chart(
+        cls,
+        request: AstrologicalSubjectRequest,
+        chart_type: str = "natal",
+        include_aspects: bool = True
+    ) -> ChartResponse:
+        """Generate natal chart in SVG format (async)."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            astro_executor,
+            cls._generate_natal_chart_sync,
+            request,
+            chart_type,
+            include_aspects
+        )
+
+    @classmethod
+    def _calculate_transits_sync(
         cls,
         natal_request: AstrologicalSubjectRequest,
         transit_date: datetime,
         orb_limit: float = 5.0
     ) -> TransitResponse:
-        """Calcula trânsitos para uma data específica."""
+        """Synchronous transit calculation for thread execution."""
         try:
-            # Criar sujeito natal
+            # Create natal subject
             natal_subject = cls.create_astrological_subject(natal_request)
 
-            # Criar sujeito para data de trânsito
+            # Create subject for transit date
             transit_request = AstrologicalSubjectRequest(
                 name=f"{natal_request.name}_transit",
                 year=transit_date.year,
@@ -228,12 +251,12 @@ class AstrologyService:
 
             transit_subject = cls.create_astrological_subject(transit_request)
 
-            # Calcular trânsitos (simplificado - pode ser expandido)
+            # Calculate transits (simplified - can be expanded)
             transits = []
             active_aspects = []
 
-            # TODO: Implementar lógica detalhada de trânsitos
-            # Esta é uma implementação básica que pode ser expandida
+            # TODO: Implement detailed transit logic
+            # This is a basic implementation that can be expanded
 
             return TransitResponse(
                 natal_subject=natal_subject.name,
@@ -243,5 +266,62 @@ class AstrologyService:
             )
 
         except Exception as e:
-            logger.error(f"Erro ao calcular trânsitos: {e}")
-            raise ValueError(f"Erro nos cálculos de trânsito: {e}")
+            logger.error(f"Error calculating transits: {e}")
+            raise ValueError(f"Error in transit calculations: {e}")
+
+    @classmethod
+    @cache_transits()
+    async def calculate_transits(
+        cls,
+        natal_request: AstrologicalSubjectRequest,
+        transit_date: datetime,
+        orb_limit: float = 5.0
+    ) -> TransitResponse:
+        """Calculate transits for a specific date (async)."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            astro_executor,
+            cls._calculate_transits_sync,
+            natal_request,
+            transit_date,
+            orb_limit
+        )
+
+    @classmethod
+    async def batch_calculate(cls, requests: List[AstrologicalSubjectRequest]) -> List[AstrologicalSubjectResponse]:
+        """Calculate multiple astrological subjects in parallel."""
+        tasks = [cls.get_astrological_data(request) for request in requests]
+        return await asyncio.gather(*tasks)
+
+    @classmethod
+    async def health_check(cls) -> Dict[str, Any]:
+        """Perform health check on astrological calculations."""
+        try:
+            # Quick test calculation
+            test_request = AstrologicalSubjectRequest(
+                name="health_check",
+                year=2000,
+                month=1,
+                day=1,
+                hour=12,
+                minute=0,
+                city="London",
+                nation="GB"
+            )
+
+            start_time = asyncio.get_event_loop().time()
+            await cls.get_astrological_data(test_request)
+            end_time = asyncio.get_event_loop().time()
+
+            return {
+                "status": "healthy",
+                "calculation_time": f"{(end_time - start_time) * 1000:.2f}ms",
+                "executor_active_threads": astro_executor._threads,
+                "executor_max_workers": astro_executor._max_workers
+            }
+
+        except Exception as e:
+            return {
+                "status": "unhealthy",
+                "error": str(e)
+            }

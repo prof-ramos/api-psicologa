@@ -10,7 +10,14 @@ from pydantic import ValidationError
 
 from .api.v1.routers import astrology_router, health_router
 from .core.config import settings
-from .core.middleware import logging_middleware, setup_cors_middleware
+from .core.middleware import (
+    PerformanceMiddleware,
+    CompressionMiddleware,
+    logging_middleware,
+    setup_cors_middleware
+)
+from .core.rate_limiter import RateLimitMiddleware
+from .core.metrics import MetricsMiddleware, get_metrics_manager
 from .core.exceptions import (
     AstrologyAPIException,
     http_exception_handler,
@@ -66,8 +73,20 @@ def create_app() -> FastAPI:
     # Configurar CORS
     setup_cors_middleware(app)
 
-    # Adicionar middleware personalizado
-    app.middleware("http")(logging_middleware)
+    # Add performance optimization middlewares
+    metrics_manager = get_metrics_manager()
+
+    # Order matters: metrics -> rate limiting -> compression -> performance
+    if settings.enable_metrics:
+        app.add_middleware(MetricsMiddleware, metrics_manager=metrics_manager)
+
+    if settings.rate_limit_enabled:
+        app.add_middleware(RateLimitMiddleware)
+
+    if settings.enable_compression:
+        app.add_middleware(CompressionMiddleware, minimum_size=1000)
+
+    app.add_middleware(PerformanceMiddleware)
 
     # Registrar exception handlers
     app.add_exception_handler(HTTPException, http_exception_handler)
@@ -79,9 +98,22 @@ def create_app() -> FastAPI:
     app.include_router(health_router, prefix="/api/v1")
     app.include_router(astrology_router, prefix="/api/v1")
 
-    # Montar métricas Prometheus se habilitado
-    if settings.enable_metrics and make_asgi_app:
-        app.mount(settings.metrics_path, make_asgi_app())
+    # Add metrics endpoint
+    if settings.enable_metrics:
+        from fastapi import Response
+
+        @app.get(settings.metrics_path)
+        async def get_metrics():
+            """Endpoint for Prometheus metrics."""
+            metrics_data, content_type = metrics_manager.get_metrics()
+            if content_type == "application/json":
+                return metrics_data
+            else:
+                return Response(content=metrics_data, media_type=content_type)
+
+        # Also mount Prometheus WSGI app if available
+        if make_asgi_app:
+            app.mount("/prometheus", make_asgi_app())
 
     return app
 
