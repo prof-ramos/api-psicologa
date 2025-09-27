@@ -43,8 +43,7 @@ class AsyncAstrologyService:
                 hour=request.hour,
                 minute=request.minute,
                 city=request.city,
-                nation=request.nation,
-                timezone=request.timezone
+                nation=request.nation
             )
         except Exception as e:
             logger.error(f"Error creating AstrologicalSubject: {e}")
@@ -56,19 +55,23 @@ class AsyncAstrologyService:
         planets = []
 
         try:
-            planet_data = subject.planets_degrees_ut()
+            # Use the correct Kerykeion API
+            if hasattr(subject, 'planets_list'):
+                planet_data = subject.planets_list
+            else:
+                planet_data = getattr(subject, 'planets', [])
 
             for planet_info in planet_data:
-                if isinstance(planet_info, dict):
+                if hasattr(planet_info, 'name'):
                     planet = PlanetPosition(
-                        name=planet_info.get('name', ''),
-                        longitude=planet_info.get('position', 0.0),
-                        latitude=planet_info.get('latitude', 0.0),
-                        distance=planet_info.get('distance'),
-                        speed=planet_info.get('speed'),
-                        sign=planet_info.get('sign', ''),
-                        house=planet_info.get('house', 1),
-                        retrograde=planet_info.get('retrograde', False)
+                        name=planet_info.name,
+                        longitude=getattr(planet_info, 'abs_pos', 0.0),
+                        latitude=getattr(planet_info, 'lat', 0.0),
+                        distance=getattr(planet_info, 'dist', None),
+                        speed=getattr(planet_info, 'speed', None),
+                        sign=getattr(planet_info, 'sign', ''),
+                        house=getattr(planet_info, 'house', 1),
+                        retrograde=getattr(planet_info, 'retrograde', False)
                     )
                     planets.append(planet)
 
@@ -83,14 +86,18 @@ class AsyncAstrologyService:
         houses = []
 
         try:
-            houses_data = subject.houses_list()
+            # Use the correct Kerykeion API
+            if hasattr(subject, 'houses_list'):
+                houses_data = subject.houses_list
+            else:
+                houses_data = getattr(subject, 'houses', [])
 
             for i, house_info in enumerate(houses_data):
-                if isinstance(house_info, dict):
+                if hasattr(house_info, 'abs_pos'):
                     house = HousePosition(
                         house_number=i + 1,
-                        longitude=house_info.get('position', 0.0),
-                        sign=house_info.get('sign', '')
+                        longitude=getattr(house_info, 'abs_pos', 0.0),
+                        sign=getattr(house_info, 'sign', '')
                     )
                     houses.append(house)
 
@@ -105,16 +112,20 @@ class AsyncAstrologyService:
         aspects = []
 
         try:
-            aspects_data = subject.aspects_list()
+            # Use the correct Kerykeion API
+            if hasattr(subject, 'aspects_list'):
+                aspects_data = subject.aspects_list
+            else:
+                aspects_data = getattr(subject, 'aspects', [])
 
             for aspect_info in aspects_data:
-                if isinstance(aspect_info, dict):
+                if hasattr(aspect_info, 'p1_name'):
                     aspect = AspectData(
-                        planet1=aspect_info.get('planet1', ''),
-                        planet2=aspect_info.get('planet2', ''),
-                        aspect=aspect_info.get('aspect', ''),
-                        orb=aspect_info.get('orb', 0.0),
-                        applying=aspect_info.get('applying', False)
+                        planet1=getattr(aspect_info, 'p1_name', ''),
+                        planet2=getattr(aspect_info, 'p2_name', ''),
+                        aspect=getattr(aspect_info, 'aspect', ''),
+                        orb=getattr(aspect_info, 'orbit', 0.0),
+                        applying=getattr(aspect_info, 'aid', 0) < 0
                     )
                     aspects.append(aspect)
 
@@ -152,7 +163,7 @@ class AsyncAstrologyService:
                 planets=planets,
                 houses=houses,
                 aspects=aspects,
-                lunar_phase=getattr(subject, 'lunar_phase', None)
+                lunar_phase=getattr(subject, 'lunar_phase', {}) if hasattr(subject, 'lunar_phase') else None
             )
 
         except Exception as e:

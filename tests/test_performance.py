@@ -5,7 +5,7 @@ Performance and load testing for the astrological API.
 import asyncio
 import time
 import pytest
-import httpx
+from fastapi.testclient import TestClient
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
 
