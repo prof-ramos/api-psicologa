@@ -19,13 +19,14 @@ from ....schemas import (
     TransitResponse
 )
 from ....services import AstrologyService
+from ....services.async_astrology_service import AsyncAstrologyService
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/astrology", tags=["astrology"])
 
 
 @router.post("/subject", response_model=APIResponse)
-def create_astrological_subject(request: AstrologicalSubjectRequest):
+async def create_astrological_subject(request: AstrologicalSubjectRequest):
     """
     Cria um sujeito astrológico com dados de nascimento.
 
@@ -35,7 +36,7 @@ def create_astrological_subject(request: AstrologicalSubjectRequest):
     - Aspectos entre planetas
     """
     try:
-        subject_data = AstrologyService.get_astrological_data(request)
+        subject_data = await AsyncAstrologyService.get_astrological_data(request)
 
         return APIResponse(
             status="OK",
@@ -53,7 +54,7 @@ def create_astrological_subject(request: AstrologicalSubjectRequest):
 
 
 @router.post("/natal-chart", response_model=APIResponse)
-def generate_natal_chart(request: ChartRequest):
+async def generate_natal_chart(request: ChartRequest):
     """
     Gera mapa natal em formato SVG.
 
@@ -65,7 +66,7 @@ def generate_natal_chart(request: ChartRequest):
     - house_system: Sistema de casas (default: Placidus)
     """
     try:
-        chart_data = AstrologyService.generate_natal_chart(
+        chart_data = await AsyncAstrologyService.generate_natal_chart(
             request.subject,
             chart_type=request.chart_type,
             include_aspects=request.include_aspects
@@ -103,7 +104,7 @@ def get_natal_chart_svg(name: str):
 
 
 @router.post("/transits", response_model=APIResponse)
-def calculate_transits(request: TransitRequest):
+async def calculate_transits(request: TransitRequest):
     """
     Calcula trânsitos planetários para uma data específica.
 
@@ -111,7 +112,7 @@ def calculate_transits(request: TransitRequest):
     com o mapa natal do sujeito.
     """
     try:
-        transit_data = AstrologyService.calculate_transits(
+        transit_data = await AsyncAstrologyService.calculate_transits(
             request.natal_subject,
             request.transit_date,
             request.orb_limit
@@ -133,7 +134,7 @@ def calculate_transits(request: TransitRequest):
 
 
 @router.get("/current-transits/{name}", response_model=APIResponse)
-def get_current_transits(
+async def get_current_transits(
     name: str,
     year: int = Query(..., description="Ano de nascimento"),
     month: int = Query(..., ge=1, le=12, description="Mês de nascimento"),
@@ -165,7 +166,7 @@ def get_current_transits(
 
         current_date = datetime.now()
 
-        transit_data = AstrologyService.calculate_transits(
+        transit_data = await AsyncAstrologyService.calculate_transits(
             natal_request,
             current_date,
             orb_limit
