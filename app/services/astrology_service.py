@@ -2,9 +2,11 @@
 Serviço para cálculos astrológicos usando a biblioteca Kerykeion.
 """
 
+import asyncio
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
+from concurrent.futures import ThreadPoolExecutor
 
 from kerykeion import AstrologicalSubject, KerykeionChartSVG
 
@@ -17,8 +19,13 @@ from ..schemas.astrology import (
     ChartResponse,
     TransitResponse
 )
+from ..core.cache import cache_astrological_subject, cache_natal_chart, cache_transits
+from ..core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Thread pool for CPU-intensive calculations
+calculation_executor = ThreadPoolExecutor(max_workers=4)
 
 
 class AstrologyService:
@@ -119,6 +126,7 @@ class AstrologyService:
         return aspects
 
     @classmethod
+    @cache_astrological_subject()
     def get_astrological_data(cls, request: AstrologicalSubjectRequest) -> AstrologicalSubjectResponse:
         """Obtém dados astrológicos completos para um sujeito."""
         try:
@@ -156,6 +164,7 @@ class AstrologyService:
             raise ValueError(f"Erro nos cálculos astrológicos: {e}")
 
     @classmethod
+    @cache_natal_chart()
     def generate_natal_chart(
         cls,
         request: AstrologicalSubjectRequest,
@@ -192,6 +201,7 @@ class AstrologyService:
             raise ValueError(f"Erro na geração do mapa: {e}")
 
     @classmethod
+    @cache_transits()
     def calculate_transits(
         cls,
         natal_request: AstrologicalSubjectRequest,

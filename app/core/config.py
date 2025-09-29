@@ -39,6 +39,21 @@ class Settings(BaseSettings):
     default_timezone: str = Field(default="America/Sao_Paulo", description="Timezone padrão")
     geonames_username: str = Field(default="", description="Username para GeoNames (opcional)")
 
+    # Configurações de cache e performance
+    redis_url: str = Field(default="", description="URL do Redis para cache")
+    cache_enabled: bool = Field(default=True, description="Habilita cache de cálculos")
+    cache_ttl_subjects: int = Field(default=7200, description="TTL cache sujeitos astrológicos (segundos)")
+    cache_ttl_charts: int = Field(default=14400, description="TTL cache mapas natais (segundos)")
+    cache_ttl_transits: int = Field(default=1800, description="TTL cache trânsitos (segundos)")
+
+    # Configurações de rate limiting
+    rate_limit_enabled: bool = Field(default=True, description="Habilita rate limiting")
+    rate_limit_requests: int = Field(default=60, description="Requests por minuto por IP")
+    rate_limit_window: int = Field(default=60, description="Janela de rate limiting (segundos)")
+
+    # Configurações de compressão
+    enable_compression: bool = Field(default=True, description="Habilita compressão de respostas")
+
     class Config:
         env_file = ".env"
         case_sensitive = False
